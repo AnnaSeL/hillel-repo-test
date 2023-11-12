@@ -1,10 +1,11 @@
 from flask import Flask, jsonify, request
 from peewee import fn
 
-from db import Student, Mark
-from deserializators import deserialize_student_data, deserialize_mark_data
-from serializatiors import serialize_db_student, serialize_db_mark, serialize_db_student_with_marks
-from validators import validate_student_data, ValidationError, validate_mark_data
+from db import Student, Mark, Teacher
+from deserializators import deserialize_student_data, deserialize_mark_data, deserialize_teacher_data
+from serializatiors import serialize_db_student, serialize_db_mark, serialize_db_student_with_marks, \
+    serialize_db_teacher
+from validators import validate_student_data, ValidationError, validate_mark_data, validate_teacher_data
 
 app = Flask(__name__)
 
@@ -69,9 +70,63 @@ def marks_api():
 
         return jsonify(serialize_db_mark(mark)), 201
     if request.method == "GET":
-        marks = Mark.select(Mark, Student).join(Student)
+        marks = Mark.select(Mark, Student, Teacher).join(Student).join_from(Mark, Teacher)
 
         return jsonify([serialize_db_mark(mark) for mark in marks])
+
+
+@app.route('/teachers', methods=["GET", "POST"])
+def teachers_api():
+    if request.method == "POST":
+        data = deserialize_teacher_data()
+
+        validate_teacher_data(data)
+
+        teacher = Teacher.create(**data)
+
+        return jsonify(serialize_db_teacher(teacher)), 201
+    if request.method == "GET":
+        teachers = Teacher.select(Teacher)
+
+        return jsonify([serialize_db_teacher(teacher) for teacher in teachers])
+
+
+@app.route('/teachers/<int:teacher_id>', methods=["GET", "PATCH", "DELETE"])
+def teacher_api(teacher_id):
+    if request.method == "GET":
+        teacher = Teacher.get_or_none(id=teacher_id)
+
+        if not teacher:
+            return jsonify({"message": "teacher not found"}), 404
+
+        return jsonify(serialize_db_teacher(teacher))
+    if request.method == "PATCH":
+        teacher = Teacher.get_or_none(id=teacher_id)
+
+        if not teacher:
+            return jsonify({"message": "teacher not found"}), 404
+
+        data = deserialize_teacher_data()
+        validate_teacher_data(data)
+
+        Teacher.update(**data).where(Teacher.id == teacher_id).execute()
+        teacherUpd = Teacher.get_or_none(id=teacher_id)
+        return jsonify(serialize_db_teacher(teacherUpd))
+    if request.method == "DELETE":
+        teacher = Teacher.get_or_none(id=teacher_id)
+
+        if not teacher:
+            return jsonify({"message": "teacher not found"}), 404
+
+        Teacher.delete().where(Teacher.id == teacher_id).execute()
+
+        teacherDel = Teacher.get_or_none(id=teacher_id)
+
+        if not teacherDel:
+            return jsonify({"message": "teacher not found"}), 404
+        return jsonify(serialize_db_teacher(teacherDel))
+
+
 
 
 if __name__ == '__main__':
