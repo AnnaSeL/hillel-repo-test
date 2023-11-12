@@ -14,7 +14,7 @@ def serialize_db_mark(mark: Mark):
         "id": mark.id,
         "value": mark.value,
         "timestamp": mark.timestamp,
-        #"teacher": serialize_db_teacher(mark.teacher)
+        "teacher": serialize_db_teacher(mark.teacher)
     }
 
 
